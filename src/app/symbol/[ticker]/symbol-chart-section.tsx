@@ -3,64 +3,97 @@
 import { useCallback, useMemo, useState } from "react";
 import { ChartWorkspace } from "@/components/chart/chart-workspace";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import type { SignalRow } from "@/lib/schemas";
 import { cn } from "@/lib/utils";
+import { useScreenerStore } from "@/stores/screener-store";
+
+export type InstrumentChoice = { symbol: string; label: string };
 
 function normalizeSymbol(s: string): string {
   return s.trim().toUpperCase().replace(/\s+/g, "");
 }
 
-/** How panels 2–4 label the same underlying chart symbol. */
-type PanelSlot = "plain" | "buy" | "sell";
+function sortByScoreDesc(rows: SignalRow[]): SignalRow[] {
+  return [...rows].sort((a, b) => b.score - a.score);
+}
 
-const SLOT_ORDER: PanelSlot[] = ["plain", "buy", "sell"];
+function rowsToChoices(rows: SignalRow[]): InstrumentChoice[] {
+  return rows.slice(0, 150).map((r) => ({
+    symbol: r.symbol,
+    label: `${r.symbol} · ${r.sector}`,
+  }));
+}
 
-export function SymbolChartSection({ primaryTicker }: { primaryTicker: string }) {
+const CUSTOM = "__custom__";
+
+export function SymbolChartSection({
+  primaryTicker,
+  instrumentChoices,
+}: {
+  primaryTicker: string;
+  /** Listed names from bundled universe (server-sorted). */
+  instrumentChoices: InstrumentChoice[];
+}) {
   const p = useMemo(
     () => normalizeSymbol(primaryTicker) || primaryTicker,
     [primaryTicker],
   );
 
-  const slotLabels = useMemo(() => {
-    return {
-      plain: p,
-      buy: `${p} BUY`,
-      sell: `${p} SELL`,
-    } as const;
-  }, [p]);
+  const storeSignals = useScreenerStore((s) => s.signals);
 
-  const [inputs, setInputs] = useState<[PanelSlot, PanelSlot, PanelSlot]>([
-    "plain",
-    "plain",
-    "plain",
-  ]);
-  const [appliedSlots, setAppliedSlots] = useState<[PanelSlot, PanelSlot, PanelSlot]>([
-    "plain",
-    "plain",
-    "plain",
+  const options = useMemo(() => {
+    const fromRows: InstrumentChoice[] =
+      storeSignals && storeSignals.length > 0
+        ? rowsToChoices(sortByScoreDesc(storeSignals))
+        : instrumentChoices;
+    const rest = fromRows.filter((o) => o.symbol.toUpperCase() !== p.toUpperCase());
+    return [{ symbol: p, label: `${p} · this page` }, ...rest];
+  }, [storeSignals, instrumentChoices, p]);
+
+  const optionSymbols = useMemo(
+    () => new Set(options.map((o) => o.symbol.toUpperCase())),
+    [options],
+  );
+
+  const [inputs, setInputs] = useState<[string, string, string]>(() => [p, p, p]);
+  const [customSlots, setCustomSlots] = useState<[string, string, string]>(["", "", ""]);
+  const [applied, setApplied] = useState<[string, string, string, string]>(() => [
+    p,
+    p,
+    p,
+    p,
   ]);
 
-  const panelTitles = useMemo((): [string, string, string, string] => {
-    return [
-      p,
-      slotLabels[appliedSlots[0]],
-      slotLabels[appliedSlots[1]],
-      slotLabels[appliedSlots[2]],
-    ];
-  }, [p, appliedSlots, slotLabels]);
+  const resolveSlot = useCallback(
+    (i: 0 | 1 | 2, fallback: string): string => {
+      const raw = inputs[i] ?? "";
+      if (raw === CUSTOM) return normalizeSymbol(customSlots[i] ?? "") || fallback;
+      return normalizeSymbol(raw) || fallback;
+    },
+    [inputs, customSlots],
+  );
 
   const apply = useCallback(() => {
-    setAppliedSlots(inputs);
-  }, [inputs]);
+    setApplied([p, resolveSlot(0, p), resolveSlot(1, p), resolveSlot(2, p)]);
+  }, [resolveSlot, p]);
 
-  const setSlot = useCallback((i: 0 | 1 | 2, v: PanelSlot) => {
+  const setInstrumentSlot = useCallback((i: 0 | 1 | 2, v: string) => {
     setInputs((prev) => {
-      const n: [PanelSlot, PanelSlot, PanelSlot] = [...prev];
+      const n: [string, string, string] = [...prev];
       n[i] = v;
       return n;
     });
+    if (v !== CUSTOM) {
+      setCustomSlots((prev) => {
+        const n: [string, string, string] = [...prev];
+        n[i] = "";
+        return n;
+      });
+    }
   }, []);
 
-  const gridKey = `${p}|${appliedSlots.join("-")}`;
+  const gridKey = applied.join("|");
 
   return (
     <div className="space-y-4">
@@ -69,12 +102,11 @@ export function SymbolChartSection({ primaryTicker }: { primaryTicker: string })
           Four-symbol chart grid (2×2)
         </div>
         <p className="text-[10px] text-[var(--muted)] leading-relaxed">
-          <strong className="font-medium text-[var(--foreground)]">Panel 1</strong> is this page’s
-          symbol. <strong className="font-medium text-[var(--foreground)]">Panels 2–4</strong> each
-          pick <strong className="font-medium">{slotLabels.plain}</strong>,{" "}
-          <strong className="font-medium">{slotLabels.buy}</strong>, or{" "}
-          <strong className="font-medium">{slotLabels.sell}</strong> — same OHLC chart; labels mark
-          how you’re thinking about the trade. Click Apply to update the grid.
+          <strong className="font-medium text-[var(--foreground)]">Panel 1</strong> is always this
+          page’s symbol. <strong className="font-medium text-[var(--foreground)]">Panels 2–4</strong>{" "}
+          choose other <strong className="font-medium">NSE cash symbols</strong> from the list (or
+          your last screener <strong className="font-medium">Run</strong> when available). Use
+          Custom to type any listed ticker. Click Apply to update charts.
         </p>
         <div className="flex flex-wrap gap-2 items-end">
           <label className="flex flex-col gap-0.5 min-w-[10rem] flex-1 sm:flex-none sm:min-w-[11rem]">
@@ -91,30 +123,60 @@ export function SymbolChartSection({ primaryTicker }: { primaryTicker: string })
             </div>
           </label>
 
-          {([0, 1, 2] as const).map((i) => (
-            <label
-              key={i}
-              className="flex flex-col gap-0.5 min-w-[10rem] flex-1 sm:flex-none sm:min-w-[11rem]"
-            >
-              <span className="text-[10px] text-[var(--muted)]">
-                Panel {i + 2} · Symbol
-              </span>
-              <select
-                className={cn(
-                  "h-8 w-full rounded-sm border border-[var(--border)] bg-[var(--background)] px-2 text-xs text-[var(--foreground)] font-[family-name:var(--font-jetbrains)]",
-                  "focus:outline-none focus:ring-1 focus:ring-[#3b82f6]",
-                )}
-                value={inputs[i]}
-                onChange={(e) => setSlot(i, e.target.value as PanelSlot)}
+          {([0, 1, 2] as const).map((i) => {
+            const raw = inputs[i] ?? "";
+            const useCustom = raw === CUSTOM;
+            const upper = raw.trim().toUpperCase();
+            const inList = !useCustom && raw !== "" && optionSymbols.has(upper);
+            const selectValue = useCustom || (!inList && raw !== "") ? CUSTOM : upper;
+
+            return (
+              <label
+                key={i}
+                className="flex flex-col gap-0.5 min-w-[10rem] flex-1 sm:flex-none sm:min-w-[11rem]"
               >
-                {SLOT_ORDER.map((slot) => (
-                  <option key={slot} value={slot}>
-                    {slotLabels[slot]}
-                  </option>
-                ))}
-              </select>
-            </label>
-          ))}
+                <span className="text-[10px] text-[var(--muted)]">
+                  Panel {i + 2} · Instrument
+                </span>
+                <select
+                  className={cn(
+                    "h-8 w-full rounded-sm border border-[var(--border)] bg-[var(--background)] px-2 text-xs text-[var(--foreground)] font-[family-name:var(--font-jetbrains)]",
+                    "focus:outline-none focus:ring-1 focus:ring-[#3b82f6]",
+                  )}
+                  value={selectValue}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    if (v === CUSTOM) setInstrumentSlot(i, CUSTOM);
+                    else setInstrumentSlot(i, v);
+                  }}
+                >
+                  {options.map((o) => (
+                    <option key={o.symbol} value={o.symbol}>
+                      {o.label}
+                    </option>
+                  ))}
+                  <option value={CUSTOM}>Custom symbol…</option>
+                </select>
+                {useCustom || (!inList && raw !== "") ? (
+                  <Input
+                    className="h-8 text-xs font-[family-name:var(--font-jetbrains)] mt-1"
+                    value={useCustom ? customSlots[i] ?? "" : raw}
+                    onChange={(e) => {
+                      const t = e.target.value;
+                      setInstrumentSlot(i, CUSTOM);
+                      setCustomSlots((prev) => {
+                        const n: [string, string, string] = [...prev];
+                        n[i] = t;
+                        return n;
+                      });
+                    }}
+                    placeholder="e.g. HDFCBANK, RELIANCE"
+                    autoCapitalize="characters"
+                  />
+                ) : null}
+              </label>
+            );
+          })}
 
           <Button type="button" variant="primary" className="h-8 text-xs" onClick={apply}>
             Apply
@@ -125,8 +187,7 @@ export function SymbolChartSection({ primaryTicker }: { primaryTicker: string })
       <ChartWorkspace
         key={gridKey}
         ticker={primaryTicker}
-        gridSymbols={[p, p, p, p]}
-        gridPanelTitles={panelTitles}
+        gridSymbols={applied}
         initialGridMode
       />
     </div>
