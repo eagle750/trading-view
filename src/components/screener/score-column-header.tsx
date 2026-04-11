@@ -16,7 +16,11 @@ export function ScoreColumnHeader() {
   }, [open]);
 
   return (
-    <div ref={ref} className="relative inline-flex items-center gap-1 whitespace-nowrap">
+    <div
+      ref={ref}
+      data-no-sort-toggle
+      className="relative inline-flex items-center gap-1 whitespace-nowrap"
+    >
       <span>Score</span>
       <button
         type="button"

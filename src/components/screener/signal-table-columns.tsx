@@ -6,9 +6,12 @@ import type { SignalRow } from "@/lib/schemas";
 import { ScoreColumnHeader } from "@/components/screener/score-column-header";
 import { cn } from "@/lib/utils";
 
+const sz = (size: number, min = 48, max = 640) => ({ size, minSize: min, maxSize: max });
+
 export const signalTableBaseColumns: ColumnDef<SignalRow>[] = [
   {
     accessorKey: "symbol",
+    ...sz(88, 56, 200),
     header: "Symbol",
     cell: (c) => {
       const sym = c.getValue() as string;
@@ -24,9 +27,10 @@ export const signalTableBaseColumns: ColumnDef<SignalRow>[] = [
       );
     },
   },
-  { accessorKey: "company", header: "Company" },
+  { accessorKey: "company", ...sz(200, 100, 480), header: "Company" },
   {
     accessorKey: "ltp",
+    ...sz(88, 64, 160),
     header: "LTP",
     cell: (c) => (
       <span className="font-[family-name:var(--font-jetbrains)] tabular-nums">
@@ -36,6 +40,7 @@ export const signalTableBaseColumns: ColumnDef<SignalRow>[] = [
   },
   {
     accessorKey: "pctChg",
+    ...sz(92, 72, 160),
     header: "% Chg",
     cell: (c) => {
       const v = c.getValue() as number;
@@ -54,6 +59,7 @@ export const signalTableBaseColumns: ColumnDef<SignalRow>[] = [
   },
   {
     accessorKey: "mktCapCr",
+    ...sz(120, 88, 220),
     header: "Mkt Cap (Cr)",
     cell: (c) => (
       <span className="font-[family-name:var(--font-jetbrains)] tabular-nums">
@@ -63,6 +69,7 @@ export const signalTableBaseColumns: ColumnDef<SignalRow>[] = [
   },
   {
     accessorKey: "pe",
+    ...sz(72, 56, 140),
     header: "P/E",
     cell: (c) => {
       const v = c.getValue() as number | null;
@@ -75,6 +82,7 @@ export const signalTableBaseColumns: ColumnDef<SignalRow>[] = [
   },
   {
     accessorKey: "roe",
+    ...sz(72, 56, 140),
     header: "RoE",
     cell: (c) => {
       const v = c.getValue() as number | null;
@@ -87,6 +95,7 @@ export const signalTableBaseColumns: ColumnDef<SignalRow>[] = [
   },
   {
     accessorKey: "signal",
+    ...sz(88, 64, 160),
     header: "Signal",
     cell: (c) => {
       const s = c.getValue() as string;
@@ -106,6 +115,7 @@ export const signalTableBaseColumns: ColumnDef<SignalRow>[] = [
   },
   {
     accessorKey: "score",
+    ...sz(88, 64, 160),
     header: () => <ScoreColumnHeader />,
     cell: (c) => (
       <span className="font-[family-name:var(--font-jetbrains)] tabular-nums">
@@ -113,8 +123,12 @@ export const signalTableBaseColumns: ColumnDef<SignalRow>[] = [
       </span>
     ),
   },
-  { accessorKey: "sector", header: "Sector" },
-  { accessorKey: "triggeredRule", header: "Triggered Rule" },
+  { accessorKey: "sector", ...sz(140, 80, 320), header: "Sector" },
+  {
+    accessorKey: "triggeredRule",
+    ...sz(280, 120, 920),
+    header: "Triggered Rule",
+  },
 ];
 
 function fmtOpt(n: number | undefined): string {
@@ -125,6 +139,7 @@ function fmtOpt(n: number | undefined): string {
 export const signalTableFundamentalColumns: ColumnDef<SignalRow>[] = [
   {
     id: "debtToEquity",
+    ...sz(100, 72, 200),
     accessorFn: (r) => r.debtToEquity,
     header: "Debt / Eq",
     cell: (c) => (
@@ -135,6 +150,7 @@ export const signalTableFundamentalColumns: ColumnDef<SignalRow>[] = [
   },
   {
     id: "promoterHoldingPct",
+    ...sz(110, 80, 200),
     accessorFn: (r) => r.promoterHoldingPct,
     header: "Promoter %",
     cell: (c) => (
@@ -145,6 +161,7 @@ export const signalTableFundamentalColumns: ColumnDef<SignalRow>[] = [
   },
   {
     id: "fiiDiiHoldingPct",
+    ...sz(100, 72, 200),
     accessorFn: (r) => r.fiiDiiHoldingPct,
     header: "FII/DII %",
     cell: (c) => (
@@ -155,6 +172,7 @@ export const signalTableFundamentalColumns: ColumnDef<SignalRow>[] = [
   },
   {
     id: "salesGrowth1yPct",
+    ...sz(120, 88, 220),
     accessorFn: (r) => r.salesGrowth1yPct,
     header: "Sales gr 1Y %",
     cell: (c) => (
@@ -165,6 +183,7 @@ export const signalTableFundamentalColumns: ColumnDef<SignalRow>[] = [
   },
   {
     id: "netProfitGrowth1yPct",
+    ...sz(120, 88, 220),
     accessorFn: (r) => r.netProfitGrowth1yPct,
     header: "Profit gr 1Y %",
     cell: (c) => (
@@ -175,6 +194,7 @@ export const signalTableFundamentalColumns: ColumnDef<SignalRow>[] = [
   },
   {
     id: "last2QtrRevProfitGrowthPct",
+    ...sz(110, 80, 220),
     accessorFn: (r) => r.last2QtrRevProfitGrowthPct,
     header: "Last 2Q gr %",
     cell: (c) => (

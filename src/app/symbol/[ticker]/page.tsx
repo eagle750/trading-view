@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { fetchYahooQuote } from "@/lib/market/yahoo-nse";
-import { SEED_SIGNALS } from "@/lib/seed/signals";
+import { SEED_SIGNALS, sortSignalsByScoreDesc } from "@/lib/seed/signals";
 import { SymbolChartSection } from "@/app/symbol/[ticker]/symbol-chart-section";
 
 export default async function SymbolPage({
@@ -38,6 +38,13 @@ export default async function SymbolPage({
     pctChg != null
       ? `${pctChg >= 0 ? "+" : ""}${pctChg.toFixed(2)}%`
       : "—";
+
+  const signalChoices = sortSignalsByScoreDesc([...SEED_SIGNALS])
+    .slice(0, 100)
+    .map((r) => ({
+      symbol: r.symbol,
+      label: `${r.symbol} · ${r.signal} · ${r.score}`,
+    }));
 
   return (
     <div className="mx-auto max-w-[1400px] px-4 py-6 space-y-6">
@@ -90,7 +97,11 @@ export default async function SymbolPage({
         <h2 className="text-sm font-medium text-[var(--foreground)] mb-3">
           Chart workspace
         </h2>
-        <SymbolChartSection key={ticker} primaryTicker={ticker} />
+        <SymbolChartSection
+          key={ticker}
+          primaryTicker={ticker}
+          signalChoices={signalChoices}
+        />
       </section>
     </div>
   );

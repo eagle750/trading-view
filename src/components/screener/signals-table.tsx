@@ -7,11 +7,12 @@ import {
   getPaginationRowModel,
   getSortedRowModel,
   useReactTable,
+  type ColumnSizingState,
   type Row,
   type SortingState,
   type VisibilityState,
 } from "@tanstack/react-table";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type KeyboardEvent, type MouseEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { SignalRow } from "@/lib/schemas";
@@ -20,6 +21,7 @@ import {
   stashSignalsForFullView,
 } from "@/lib/signals-full-view-session";
 import { buildSignalColumns } from "@/components/screener/signal-table-columns";
+import { cn } from "@/lib/utils";
 
 /** Maximize / open in new window — high-contrast icon */
 function ExpandFullIcon({ className }: { className?: string }) {
@@ -154,6 +156,7 @@ export function SignalsTable({
   ]);
   const [globalFilter, setGlobalFilter] = useState("");
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
+  const [columnSizing, setColumnSizing] = useState<ColumnSizingState>({});
   const [pagination, setPagination] = useState({
     pageIndex: 0,
     pageSize: pageSizeProp,
@@ -185,11 +188,20 @@ export function SignalsTable({
       sorting,
       globalFilter,
       columnVisibility,
+      columnSizing,
       ...(paginated ? { pagination } : {}),
     },
     onSortingChange: setSorting,
     onGlobalFilterChange: setGlobalFilter,
     onColumnVisibilityChange: setColumnVisibility,
+    onColumnSizingChange: setColumnSizing,
+    enableColumnResizing: true,
+    columnResizeMode: "onChange",
+    defaultColumn: {
+      minSize: 48,
+      maxSize: 800,
+      size: 120,
+    },
     ...(paginated ? { onPaginationChange: setPagination } : {}),
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
@@ -254,7 +266,14 @@ export function SignalsTable({
       <div
         className={`rounded-sm border border-[var(--border)] ${scrollWrapClass}`}
       >
-        <table className="w-full text-sm text-left">
+        <table
+          className="text-sm text-left border-collapse"
+          style={{
+            width: table.getTotalSize(),
+            minWidth: "100%",
+            tableLayout: "fixed",
+          }}
+        >
           <thead className="sticky top-0 z-10 bg-[var(--surface)] border-b border-[var(--border)]">
             {paginated && showExpandFullTab ? (
               <tr className="border-b border-[var(--border)]">
@@ -280,20 +299,73 @@ export function SignalsTable({
             ) : null}
             {table.getHeaderGroups().map((hg) => (
               <tr key={hg.id}>
-                {hg.headers.map((h) => (
-                  <th
-                    key={h.id}
-                    className="px-3 py-3 font-medium text-[var(--muted)] cursor-pointer select-none whitespace-nowrap"
-                    onClick={h.column.getToggleSortingHandler()}
-                  >
-                    {flexRender(h.column.columnDef.header, h.getContext())}
-                    {h.column.getIsSorted() === "asc"
-                      ? " ↑"
-                      : h.column.getIsSorted() === "desc"
-                        ? " ↓"
-                        : ""}
-                  </th>
-                ))}
+                {hg.headers.map((h) => {
+                  const sorted = h.column.getIsSorted();
+                  return (
+                    <th
+                      key={h.id}
+                      colSpan={h.colSpan}
+                      style={{ width: h.getSize(), minWidth: h.getSize() }}
+                      className="relative px-0 py-0 font-medium text-[var(--muted)] select-none border-r border-[var(--border)]/60 last:border-r-0"
+                    >
+                      <div className="flex items-stretch min-h-[2.75rem]">
+                        <div
+                          className={cn(
+                            "flex-1 min-w-0 text-left px-3 py-3 hover:text-[var(--foreground)] transition-app outline-none",
+                            h.column.getCanSort() ? "cursor-pointer" : "cursor-default",
+                          )}
+                          tabIndex={h.column.getCanSort() ? 0 : undefined}
+                          onClick={(e) => {
+                            if (
+                              (e.target as HTMLElement).closest("[data-no-sort-toggle]")
+                            ) {
+                              return;
+                            }
+                            const fn = h.column.getToggleSortingHandler();
+                            if (fn) fn(e);
+                          }}
+                          onKeyDown={(e: KeyboardEvent<HTMLDivElement>) => {
+                            if (!h.column.getCanSort()) return;
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              const fn = h.column.getToggleSortingHandler();
+                              if (fn) fn(e as unknown as MouseEvent<HTMLDivElement>);
+                            }
+                          }}
+                        >
+                          <span className="inline-flex flex-wrap items-center gap-1 whitespace-normal break-words">
+                            {flexRender(h.column.columnDef.header, h.getContext())}
+                            {sorted === "asc" ? " ↑" : sorted === "desc" ? " ↓" : ""}
+                          </span>
+                        </div>
+                        {h.column.getCanResize() ? (
+                          <div
+                            role="separator"
+                            aria-orientation="vertical"
+                            aria-label={`Resize ${h.column.id} column`}
+                            onMouseDown={(e) => {
+                              e.stopPropagation();
+                              h.getResizeHandler()(e);
+                            }}
+                            onTouchStart={(e) => {
+                              e.stopPropagation();
+                              h.getResizeHandler()(e);
+                            }}
+                            onDoubleClick={(e) => {
+                              e.stopPropagation();
+                              h.column.resetSize();
+                            }}
+                            className={cn(
+                              "shrink-0 w-1.5 cursor-col-resize touch-none select-none",
+                              "hover:bg-[#3b82f6]/35 active:bg-[#3b82f6]/55",
+                              h.column.getIsResizing() && "bg-[#3b82f6]/45",
+                            )}
+                          />
+                        ) : null}
+                      </div>
+                    </th>
+                  );
+                })}
               </tr>
             ))}
           </thead>
@@ -304,7 +376,11 @@ export function SignalsTable({
                 className="border-b border-[var(--border)] hover:bg-[#1a1a1c] transition-app"
               >
                 {row.getVisibleCells().map((cell) => (
-                  <td key={cell.id} className="px-3 py-3 align-top text-[var(--foreground)]">
+                  <td
+                    key={cell.id}
+                    style={{ width: cell.column.getSize(), minWidth: cell.column.getSize() }}
+                    className="px-3 py-3 align-top text-[var(--foreground)] border-r border-[var(--border)]/40 last:border-r-0 overflow-hidden break-words"
+                  >
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
                   </td>
                 ))}
