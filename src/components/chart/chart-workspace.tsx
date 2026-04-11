@@ -39,6 +39,10 @@ const CHECKBOXES: { id: string; label: string }[] = [
 
 type Tf = (typeof TIMEFRAMES)[number];
 
+/** Grid cell chart height; expanded modal uses a taller canvas. */
+const GRID_CHART_HEIGHT = 280;
+const EXPANDED_CHART_HEIGHT = 480;
+
 const LEGEND_KEYS = [
   "ema20",
   "ema50",
@@ -139,9 +143,12 @@ function useOhlc(ticker: string, tf: Tf) {
 function Cell({
   ticker,
   initialTf,
+  chartHeight = 280,
 }: {
   ticker: string;
   initialTf: Tf;
+  /** Pixel height passed to Lightweight Charts (default grid cell size). */
+  chartHeight?: number;
 }) {
   const [tf, setTf] = useState<Tf>(initialTf);
   const { bars, loading, err, source, dataWarning, load } = useOhlc(ticker, tf);
@@ -219,7 +226,12 @@ function Cell({
   };
 
   return (
-    <div className="flex flex-col gap-2 min-h-[320px] border border-[var(--border)] rounded-sm p-2 bg-[var(--surface)]">
+    <div
+      className={cn(
+        "flex flex-col gap-2 border border-[var(--border)] rounded-sm p-2 bg-[var(--surface)]",
+        chartHeight >= 400 ? "min-h-0" : "min-h-[320px]",
+      )}
+    >
       <div className="flex flex-wrap gap-1">
         {TIMEFRAMES.map((t) => (
           <button
@@ -264,7 +276,7 @@ function Cell({
       ) : err ? (
         <div className="text-xs text-[#ef4444]">{err}</div>
       ) : (
-        <CandleChart bars={bars} overlays={ov} height={280} />
+        <CandleChart bars={bars} overlays={ov} height={chartHeight} />
       )}
       {nlChips.length ? (
         <div className="flex flex-wrap gap-1">
@@ -303,6 +315,29 @@ function normalizeTicker(sym: string, fallback: string) {
   return t || fallback;
 }
 
+function ExpandChartIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      xmlns="http://www.w3.org/2000/svg"
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <polyline points="15 3 21 3 21 9" />
+      <polyline points="9 21 3 21 3 15" />
+      <line x1="21" y1="3" x2="14" y2="10" />
+      <line x1="3" y1="21" x2="10" y2="14" />
+    </svg>
+  );
+}
+
 export function ChartWorkspace({
   ticker,
   gridSymbols,
@@ -323,6 +358,7 @@ export function ChartWorkspace({
   const tfs: Tf[] = ["1D", "1W", "1M", "1D"];
 
   const [grid, setGrid] = useState(initialGridMode);
+  const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
   const [cells, setCells] = useState<
     { id: string; ticker: string; tf: Tf }[]
   >(() =>
@@ -332,6 +368,20 @@ export function ChartWorkspace({
       tf: tfs[i] ?? "1D",
     })),
   );
+
+  useEffect(() => {
+    if (expandedIdx === null) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setExpandedIdx(null);
+    };
+    document.addEventListener("keydown", onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [expandedIdx]);
 
   const move = (from: number, to: number) => {
     setCells((prev) => {
@@ -355,37 +405,105 @@ export function ChartWorkspace({
     );
   }
 
+  const expandedCell =
+    expandedIdx !== null ? cells[expandedIdx] : undefined;
+
   return (
-    <div className="space-y-4">
-      <div className="flex justify-end">
-        <Button type="button" variant="ghost" onClick={() => setGrid(false)}>
-          Single chart
-        </Button>
-      </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-        {cells.map((c, idx) => (
-          <div
-            key={c.id}
-            className="relative"
-            draggable
-            onDragStart={(e) => e.dataTransfer.setData("idx", String(idx))}
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={(e) => {
-              const from = Number(e.dataTransfer.getData("idx"));
-              if (!Number.isNaN(from)) move(from, idx);
-            }}
-          >
-            <div className="text-[10px] text-[var(--muted)] mb-1 font-[family-name:var(--font-jetbrains)]">
-              {c.ticker}
+    <>
+      <div className="space-y-4">
+        <div className="flex justify-end">
+          <Button type="button" variant="ghost" onClick={() => setGrid(false)}>
+            Single chart
+          </Button>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          {cells.map((c, idx) => (
+            <div
+              key={c.id}
+              className="relative"
+              draggable
+              onDragStart={(e) => e.dataTransfer.setData("idx", String(idx))}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={(e) => {
+                const from = Number(e.dataTransfer.getData("idx"));
+                if (!Number.isNaN(from)) move(from, idx);
+              }}
+            >
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <div className="text-[10px] text-[var(--muted)] font-[family-name:var(--font-jetbrains)] truncate">
+                  {c.ticker}
+                </div>
+                <button
+                  type="button"
+                  draggable={false}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onClick={() => setExpandedIdx(idx)}
+                  className={cn(
+                    "shrink-0 inline-flex items-center justify-center rounded-sm border border-[var(--border)]",
+                    "h-7 w-7 text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-[var(--background)]",
+                    "transition-app",
+                  )}
+                  title="Larger chart"
+                  aria-label={`Larger chart for ${c.ticker}`}
+                >
+                  <ExpandChartIcon />
+                </button>
+              </div>
+              <Cell
+                ticker={c.ticker}
+                initialTf={c.tf}
+                chartHeight={GRID_CHART_HEIGHT}
+              />
             </div>
-            <Cell ticker={c.ticker} initialTf={c.tf} />
-          </div>
-        ))}
+          ))}
+        </div>
+        <p className="text-[10px] text-[var(--muted)]">
+          Drag a panel by its frame to reorder. Use the expand control for a larger chart.
+          Symbols for the four panels are set in the section above (on this page) or switch to
+          single chart for the page symbol only.
+        </p>
       </div>
-      <p className="text-[10px] text-[var(--muted)]">
-        Drag a panel by its frame to reorder. Symbols for the four panels are set in the
-        section above (on this page) or switch to single chart for the page symbol only.
-      </p>
-    </div>
+
+      {expandedCell ? (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/65 p-3 sm:p-6"
+          role="presentation"
+          onClick={() => setExpandedIdx(null)}
+        >
+          <div
+            className={cn(
+              "relative w-full max-w-6xl max-h-[92vh] overflow-y-auto rounded-sm border border-[var(--border)]",
+              "bg-[var(--surface)] p-3 sm:p-4 shadow-xl",
+            )}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="chart-expanded-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3 mb-2">
+              <h2
+                id="chart-expanded-title"
+                className="text-sm font-medium text-[var(--foreground)] font-[family-name:var(--font-jetbrains)]"
+              >
+                {expandedCell.ticker}
+              </h2>
+              <Button
+                type="button"
+                variant="ghost"
+                className="h-8 shrink-0 text-xs"
+                onClick={() => setExpandedIdx(null)}
+              >
+                Close
+              </Button>
+            </div>
+            <Cell
+              ticker={expandedCell.ticker}
+              initialTf={expandedCell.tf}
+              chartHeight={EXPANDED_CHART_HEIGHT}
+            />
+          </div>
+        </div>
+      ) : null}
+    </>
   );
 }
