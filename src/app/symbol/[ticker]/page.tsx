@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { fetchYahooQuote } from "@/lib/market/yahoo-nse";
 import { SEED_SIGNALS } from "@/lib/seed/signals";
-import { ChartWorkspace } from "@/components/chart/chart-workspace";
+import { SymbolChartSection } from "@/app/symbol/[ticker]/symbol-chart-section";
 
 export default async function SymbolPage({
   params,
@@ -90,7 +90,7 @@ export default async function SymbolPage({
         <h2 className="text-sm font-medium text-[var(--foreground)] mb-3">
           Chart workspace
         </h2>
-        <ChartWorkspace ticker={ticker} />
+        <SymbolChartSection key={ticker} primaryTicker={ticker} />
       </section>
     </div>
   );

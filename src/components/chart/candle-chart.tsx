@@ -20,6 +20,58 @@ export type ChartOverlayKey =
   | "rsi"
   | "macd";
 
+/** Colors used on the chart — keep in sync with series below */
+export const CHART_OVERLAY_STYLES: Record<
+  string,
+  { label: string; swatch: string; detail: string }
+> = {
+  candleUp: {
+    label: "Candles (up)",
+    swatch: "#22c55e",
+    detail: "Green bodies / wicks",
+  },
+  candleDown: {
+    label: "Candles (down)",
+    swatch: "#ef4444",
+    detail: "Red bodies / wicks",
+  },
+  ema20: {
+    label: "EMA 20",
+    swatch: "#3b82f6",
+    detail: "Blue line on price pane",
+  },
+  ema50: {
+    label: "EMA 50",
+    swatch: "#f59e0b",
+    detail: "Orange line on price pane",
+  },
+  ema200: {
+    label: "EMA 200",
+    swatch: "#8b5cf6",
+    detail: "Purple line on price pane",
+  },
+  bollinger: {
+    label: "Bollinger Bands",
+    swatch: "#6b7280",
+    detail: "Mid solid; upper/lower dashed (#8a8a92)",
+  },
+  macd: {
+    label: "MACD",
+    swatch: "#22d3ee",
+    detail: "Cyan line in lower pane",
+  },
+  rsi: {
+    label: "RSI (14)",
+    swatch: "#a78bfa",
+    detail: "Purple line in lower pane",
+  },
+  volume: {
+    label: "Volume",
+    swatch: "linear-gradient(90deg,#22c55e55,#ef444455)",
+    detail: "Green/red bars (lower pane)",
+  },
+};
+
 const W = 900;
 const H = 380;
 

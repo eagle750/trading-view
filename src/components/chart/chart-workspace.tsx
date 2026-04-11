@@ -1,7 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { CandleChart } from "@/components/chart/candle-chart";
+import {
+  CandleChart,
+  CHART_OVERLAY_STYLES,
+} from "@/components/chart/candle-chart";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { OhlcBar } from "@/lib/schemas";
@@ -35,6 +38,64 @@ const CHECKBOXES: { id: string; label: string }[] = [
 ];
 
 type Tf = (typeof TIMEFRAMES)[number];
+
+const LEGEND_KEYS = [
+  "ema20",
+  "ema50",
+  "ema200",
+  "bollinger",
+  "macd",
+  "rsi",
+  "volume",
+] as const;
+
+function OverlayLegend({ ov }: { ov: Set<string> }) {
+  const active = LEGEND_KEYS.filter((k) => ov.has(k));
+  if (active.length === 0) return null;
+
+  return (
+    <div
+      className="flex flex-wrap gap-x-3 gap-y-1.5 items-center border-t border-[var(--border)] pt-2 mt-1"
+      aria-label="Chart overlay colors"
+    >
+      <span className="text-[9px] text-[var(--muted)] uppercase tracking-wide shrink-0">
+        Legend
+      </span>
+      {active.map((key) => {
+        const st = CHART_OVERLAY_STYLES[key];
+        if (!st) return null;
+        return (
+          <span
+            key={key}
+            className="inline-flex items-center gap-1.5 text-[10px] text-[var(--foreground)]"
+            title={st.detail}
+          >
+            {key === "volume" ? (
+              <span className="inline-flex h-2.5 w-5 shrink-0 overflow-hidden rounded-sm border border-[var(--border)]">
+                <span className="h-full w-1/2 bg-[#22c55e]/50" />
+                <span className="h-full w-1/2 bg-[#ef4444]/50" />
+              </span>
+            ) : (
+              <span
+                className="h-2.5 w-5 shrink-0 rounded-sm border border-[var(--border)]"
+                style={{ backgroundColor: st.swatch }}
+              />
+            )}
+            <span className="whitespace-nowrap">{st.label}</span>
+          </span>
+        );
+      })}
+      <span
+        className="text-[9px] text-[var(--muted)] ml-auto max-w-[14rem] leading-tight"
+        title="Default candle colors"
+      >
+        Candles:{" "}
+        <span className="text-[#22c55e]">green ↑</span>{" "}
+        <span className="text-[#ef4444]">red ↓</span>
+      </span>
+    </div>
+  );
+}
 
 function useOhlc(ticker: string, tf: Tf) {
   const [bars, setBars] = useState<OhlcBar[]>([]);
@@ -188,6 +249,7 @@ function Cell({
           </label>
         ))}
       </div>
+      <OverlayLegend ov={ov} />
       {source === "yahoo" ? (
         <p className="text-[10px] text-[#22c55e]/90 -mt-1 mb-1">
           Live OHLC (Yahoo Finance)
@@ -236,16 +298,40 @@ function Cell({
   );
 }
 
-export function ChartWorkspace({ ticker }: { ticker: string }) {
-  const [grid, setGrid] = useState(false);
+function normalizeTicker(sym: string, fallback: string) {
+  const t = sym.trim().toUpperCase();
+  return t || fallback;
+}
+
+export function ChartWorkspace({
+  ticker,
+  gridSymbols,
+  initialGridMode = false,
+}: {
+  ticker: string;
+  /** Four panel symbols for 2×2 grid (drives panels when grid mode is on). */
+  gridSymbols?: [string, string, string, string];
+  /** Start in 2×2 grid (e.g. symbol page with four-symbol picker). */
+  initialGridMode?: boolean;
+}) {
+  const four = gridSymbols ?? [
+    ticker,
+    "NIFTY",
+    "BANKNIFTY",
+    "HDFCBANK",
+  ];
+  const tfs: Tf[] = ["1D", "1W", "1M", "1D"];
+
+  const [grid, setGrid] = useState(initialGridMode);
   const [cells, setCells] = useState<
-    { id: string; ticker: string; tf: (typeof TIMEFRAMES)[number] }[]
-  >([
-    { id: "1", ticker, tf: "1D" },
-    { id: "2", ticker: "NIFTY", tf: "1W" },
-    { id: "3", ticker, tf: "1M" },
-    { id: "4", ticker: "BANKNIFTY", tf: "1D" },
-  ]);
+    { id: string; ticker: string; tf: Tf }[]
+  >(() =>
+    four.map((sym, i) => ({
+      id: `c${i}`,
+      ticker: normalizeTicker(sym, ticker),
+      tf: tfs[i] ?? "1D",
+    })),
+  );
 
   const move = (from: number, to: number) => {
     setCells((prev) => {
@@ -276,7 +362,7 @@ export function ChartWorkspace({ ticker }: { ticker: string }) {
           Single chart
         </Button>
       </div>
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
         {cells.map((c, idx) => (
           <div
             key={c.id}
@@ -289,13 +375,16 @@ export function ChartWorkspace({ ticker }: { ticker: string }) {
               if (!Number.isNaN(from)) move(from, idx);
             }}
           >
+            <div className="text-[10px] text-[var(--muted)] mb-1 font-[family-name:var(--font-jetbrains)]">
+              {c.ticker}
+            </div>
             <Cell ticker={c.ticker} initialTf={c.tf} />
           </div>
         ))}
       </div>
       <p className="text-[10px] text-[var(--muted)]">
-        Drag a panel by its frame to swap order (demo). Edit tickers in code or
-        extend with inputs.
+        Drag a panel by its frame to reorder. Symbols for the four panels are set in the
+        section above (on this page) or switch to single chart for the page symbol only.
       </p>
     </div>
   );
