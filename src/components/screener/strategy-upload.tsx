@@ -3,6 +3,7 @@
 import { useCallback, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
+import { computeStrategyStableId } from "@/lib/strategy-stable-id";
 import { useScreenerStore, type StrategyCard } from "@/stores/screener-store";
 import { cn } from "@/lib/utils";
 
@@ -52,8 +53,9 @@ export function StrategyUploadZone({
             );
             return;
           }
+          const stableId = await computeStrategyStableId(file, i);
           const card: StrategyCard = {
-            id: `${file.name}-${Date.now()}-${i}`,
+            id: stableId,
             filename: file.name,
             summaryBullets: data.bullets ?? [],
             tags: data.tags ?? [],

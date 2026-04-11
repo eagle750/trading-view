@@ -40,8 +40,11 @@ export const useScreenerStore = create<ScreenerState>()(
       setFilters: (p) => set((s) => ({ filters: { ...s.filters, ...p } })),
       resetFilters: () => set({ filters: defaultFilters }),
       strategies: [],
-      addStrategy: (card) =>
-        set((s) => ({ strategies: [...s.strategies, card] })),
+  /** Same stable id (same file bytes) replaces the previous card instead of duplicating. */
+  addStrategy: (card) =>
+    set((s) => ({
+      strategies: [...s.strategies.filter((x) => x.id !== card.id), card],
+    })),
       removeStrategy: (id) =>
         set((s) => ({
           strategies: s.strategies.filter((x) => x.id !== id),
