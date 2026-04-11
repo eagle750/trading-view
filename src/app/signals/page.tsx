@@ -13,6 +13,9 @@ const payloadSchema = z.object({
   signals: z.array(signalRowSchema),
 });
 
+/** Rows per page on this full-view tab (builder uses 10). */
+const FULL_VIEW_PAGE_SIZE = 30;
+
 export default function SignalsFullPage() {
   const [rows, setRows] = useState<SignalRow[] | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -49,8 +52,8 @@ export default function SignalsFullPage() {
             All signals
           </h1>
           <p className="text-sm text-[var(--muted)] mt-1">
-            Scroll the table area, or use Prev / Next to move through symbol
-            pages when the list is long.
+            Up to {FULL_VIEW_PAGE_SIZE} symbols per page — scroll the table, or use Prev / Next when
+            there are more pages.
           </p>
         </div>
         <Link
@@ -72,10 +75,10 @@ export default function SignalsFullPage() {
         <SignalsTable
           data={rows}
           paginated
-          pageSize={5}
+          pageSize={FULL_VIEW_PAGE_SIZE}
           includeFundamentals
           showExpandFullTab={false}
-          tableScrollClassName="max-h-[calc(100vh-13rem)] min-h-[200px] overflow-x-auto overflow-y-auto overscroll-contain"
+          tableScrollClassName="max-h-[calc(100vh-11rem)] min-h-[200px] overflow-x-auto overflow-y-auto overscroll-contain"
         />
       ) : (
         <p className="text-sm text-[var(--muted)]">Loading…</p>
