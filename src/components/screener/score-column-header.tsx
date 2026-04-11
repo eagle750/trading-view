@@ -51,9 +51,10 @@ export function ScoreColumnHeader() {
             <span className="font-[family-name:var(--font-jetbrains)] text-[10px] text-[#93c5fd]">
               round(35% × base score + 65% × strategy fit)
             </span>
-            . <em>Fit</em> is 1–99 from a stable key (file name + size + content hash) plus
-            symbol, sector, and market cap — same file should match across devices after
-            re-upload. Signal bands: ≥67 BUY, ≥42 HOLD, otherwise SELL.
+            . <em>Fit</em> is 1–99 from a stable key (content hash of the strategy file, not
+            the display name) plus symbol, sector, and market cap — same document bytes
+            should match across devices and renames. Signal bands: ≥67 BUY, ≥42 HOLD,
+            otherwise SELL.
           </p>
         </div>
       ) : null}
