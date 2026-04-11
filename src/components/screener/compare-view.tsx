@@ -28,8 +28,8 @@ function PaneTable({
   onScroll?: (e: React.UIEvent<HTMLDivElement>) => void;
 }) {
   return (
-    <div className="flex flex-col min-h-0 min-w-0 border border-[var(--border)] rounded-sm bg-[var(--surface)]">
-      <div className="px-3 py-2 border-b border-[var(--border)] text-sm font-medium text-[var(--foreground)]">
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col border border-[var(--border)] rounded-sm bg-[var(--surface)]">
+      <div className="shrink-0 px-3 py-2 border-b border-[var(--border)] text-sm font-medium text-[var(--foreground)]">
         <div className="truncate">{title}</div>
         {rows.length >= COMPARE_PANE_ROW_LIMIT ? (
           <div className="text-[10px] text-[var(--muted)] font-normal mt-0.5">
@@ -40,9 +40,9 @@ function PaneTable({
       <div
         ref={scrollRef}
         onScroll={onScroll}
-        className="overflow-auto max-h-[420px]"
+        className="min-h-0 flex-1 overflow-auto bg-[var(--surface)]"
       >
-        <table className="w-full text-xs">
+        <table className="w-full text-xs border-collapse">
           <thead className="sticky top-0 bg-[var(--surface)] z-[1] border-b border-[var(--border)]">
             <tr className="text-left text-[var(--muted)]">
               <th className="px-2 py-2">Symbol</th>
@@ -296,8 +296,15 @@ export function CompareView({
         </div>
       ) : null}
 
-      <Group orientation="horizontal" className="min-h-[440px] flex gap-0">
-        <Panel defaultSize={50} minSize={25}>
+      <Group
+        orientation="horizontal"
+        className="flex h-[min(75vh,720px)] w-full min-h-[280px] gap-0"
+      >
+        <Panel
+          defaultSize={50}
+          minSize={25}
+          className="flex h-full min-h-0 min-w-0 flex-col"
+        >
           <PaneTable
             title={a.name}
             rows={a.rows.slice(0, COMPARE_PANE_ROW_LIMIT)}
@@ -307,8 +314,12 @@ export function CompareView({
             onScroll={onScrollLeft}
           />
         </Panel>
-        <Separator className="w-2 bg-[var(--border)] hover:bg-[#3b82f6] transition-app mx-1 shrink-0" />
-        <Panel defaultSize={50} minSize={25}>
+        <Separator className="mx-1 w-2 shrink-0 self-stretch bg-[var(--border)] hover:bg-[#3b82f6] transition-app" />
+        <Panel
+          defaultSize={50}
+          minSize={25}
+          className="flex h-full min-h-0 min-w-0 flex-col"
+        >
           <PaneTable
             title={b.name}
             rows={b.rows.slice(0, COMPARE_PANE_ROW_LIMIT)}
