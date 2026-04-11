@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { cn } from "@/lib/utils";
 
 export function ScoreColumnHeader() {
   const [open, setOpen] = useState(false);
@@ -41,7 +42,13 @@ export function ScoreColumnHeader() {
       </button>
       {open ? (
         <div
-          className="absolute left-0 top-full z-[100] mt-1 w-[min(22rem,calc(100vw-2rem))] rounded-sm border border-[var(--border)] bg-[var(--surface)] p-3 text-left text-[11px] leading-relaxed text-[var(--muted)] shadow-lg"
+          className={cn(
+            "absolute left-0 top-full z-[100] mt-1 rounded-sm border border-[var(--border)] bg-[var(--surface)] p-3",
+            "text-left text-[11px] leading-relaxed text-[var(--muted)] shadow-lg",
+            /* Parent uses whitespace-nowrap — reset so body text wraps inside the panel */
+            "whitespace-normal break-words [overflow-wrap:anywhere]",
+            "max-w-[min(22rem,calc(100vw-2rem))] min-w-0",
+          )}
           role="tooltip"
         >
           <p className="font-medium text-[var(--foreground)] mb-1.5">Score (1–99)</p>
@@ -52,7 +59,7 @@ export function ScoreColumnHeader() {
           </p>
           <p>
             <span className="text-[var(--foreground)]">With strategy on:</span>{" "}
-            <span className="font-[family-name:var(--font-jetbrains)] text-[10px] text-[#93c5fd]">
+            <span className="font-[family-name:var(--font-jetbrains)] text-[10px] text-[#93c5fd] break-words">
               round(35% × base score + 65% × strategy fit)
             </span>
             . <em>Fit</em> is 1–99 from a stable key (content hash of the strategy file, not
