@@ -341,11 +341,14 @@ function ExpandChartIcon({ className }: { className?: string }) {
 export function ChartWorkspace({
   ticker,
   gridSymbols,
+  gridPanelTitles,
   initialGridMode = false,
 }: {
   ticker: string;
   /** Four panel symbols for 2×2 grid (drives panels when grid mode is on). */
   gridSymbols?: [string, string, string, string];
+  /** Optional header label per panel (e.g. "HDFCBANK BUY"); defaults to ticker. */
+  gridPanelTitles?: [string, string, string, string];
   /** Start in 2×2 grid (e.g. symbol page with four-symbol picker). */
   initialGridMode?: boolean;
 }) {
@@ -363,12 +366,13 @@ export function ChartWorkspace({
     null | { kind: "single" } | { kind: "grid"; idx: number }
   >(null);
   const [cells, setCells] = useState<
-    { id: string; ticker: string; tf: Tf }[]
+    { id: string; ticker: string; tf: Tf; panelTitle?: string }[]
   >(() =>
     four.map((sym, i) => ({
       id: `c${i}`,
       ticker: normalizeTicker(sym, ticker),
       tf: tfs[i] ?? "1D",
+      panelTitle: gridPanelTitles?.[i],
     })),
   );
 
@@ -399,7 +403,7 @@ export function ChartWorkspace({
     expandedView === null
       ? undefined
       : expandedView.kind === "single"
-        ? { ticker, tf: "1D" as Tf }
+        ? { ticker, tf: "1D" as Tf, panelTitle: undefined as string | undefined }
         : cells[expandedView.idx];
 
   return (
@@ -448,7 +452,7 @@ export function ChartWorkspace({
             >
               <div className="flex items-center justify-between gap-2 mb-1">
                 <div className="text-[10px] text-[var(--muted)] font-[family-name:var(--font-jetbrains)] truncate">
-                  {c.ticker}
+                  {c.panelTitle ?? c.ticker}
                 </div>
                 <button
                   type="button"
@@ -461,7 +465,7 @@ export function ChartWorkspace({
                     "transition-app",
                   )}
                   title="Larger chart"
-                  aria-label={`Larger chart for ${c.ticker}`}
+                  aria-label={`Larger chart for ${c.panelTitle ?? c.ticker}`}
                 >
                   <ExpandChartIcon />
                 </button>
@@ -503,7 +507,7 @@ export function ChartWorkspace({
                 id="chart-expanded-title"
                 className="text-sm font-medium text-[var(--foreground)] font-[family-name:var(--font-jetbrains)]"
               >
-                {expandedCell.ticker}
+                {expandedCell.panelTitle ?? expandedCell.ticker}
               </h2>
               <Button
                 type="button"
