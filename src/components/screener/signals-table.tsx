@@ -227,8 +227,6 @@ export function SignalsTable({
     }
   };
 
-  const visibleColCount = table.getVisibleLeafColumns().length;
-
   const pageCount = paginated ? table.getPageCount() : 1;
   const filteredTotal = table.getFilteredRowModel().rows.length;
   const size = paginated ? pagination.pageSize : pageSizeProp;
@@ -254,6 +252,18 @@ export function SignalsTable({
               {col.id}
             </label>
           ))}
+          {paginated && showExpandFullTab ? (
+            <button
+              type="button"
+              onClick={() => openFullPage()}
+              className="inline-flex items-center justify-center gap-1.5 rounded-sm border border-[var(--border)] px-2 py-1.5 text-xs text-[#93c5fd] hover:border-[#3b82f6] hover:bg-[#1e3a5f]/40 transition-app"
+              title="Open full table in new tab (all rows + extra columns)"
+              aria-label="Open full table in new tab"
+            >
+              <ExpandFullIcon className="w-[18px] h-[18px] shrink-0" />
+              <span className="hidden sm:inline">Full view</span>
+            </button>
+          ) : null}
           <Button
             type="button"
             variant="ghost"
@@ -275,28 +285,6 @@ export function SignalsTable({
           }}
         >
           <thead className="sticky top-0 z-10 bg-[var(--surface)] border-b border-[var(--border)]">
-            {paginated && showExpandFullTab ? (
-              <tr className="border-b border-[var(--border)]">
-                <th
-                  colSpan={Math.max(visibleColCount, 1)}
-                  className="px-2 py-1.5 text-right bg-[var(--surface)]"
-                >
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      openFullPage();
-                    }}
-                    className="inline-flex items-center justify-center rounded-sm border border-[var(--border)] p-1.5 text-[#93c5fd] hover:border-[#3b82f6] hover:bg-[#1e3a5f]/40 transition-app"
-                    title="Open full table in new tab (all rows + extra columns)"
-                    aria-label="Open full table in new tab"
-                  >
-                    <ExpandFullIcon className="w-[18px] h-[18px]" />
-                  </button>
-                </th>
-              </tr>
-            ) : null}
             {table.getHeaderGroups().map((hg) => (
               <tr key={hg.id}>
                 {hg.headers.map((h) => {
@@ -356,7 +344,7 @@ export function SignalsTable({
                               h.column.resetSize();
                             }}
                             className={cn(
-                              "shrink-0 w-1.5 cursor-col-resize touch-none select-none",
+                              "shrink-0 w-2 cursor-col-resize touch-none select-none",
                               "hover:bg-[#3b82f6]/35 active:bg-[#3b82f6]/55",
                               h.column.getIsResizing() && "bg-[#3b82f6]/45",
                             )}
