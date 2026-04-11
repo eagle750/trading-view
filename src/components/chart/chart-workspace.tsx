@@ -358,7 +358,10 @@ export function ChartWorkspace({
   const tfs: Tf[] = ["1D", "1W", "1M", "1D"];
 
   const [grid, setGrid] = useState(initialGridMode);
-  const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
+  /** Larger-chart overlay: single view or one grid panel. */
+  const [expandedView, setExpandedView] = useState<
+    null | { kind: "single" } | { kind: "grid"; idx: number }
+  >(null);
   const [cells, setCells] = useState<
     { id: string; ticker: string; tf: Tf }[]
   >(() =>
@@ -370,9 +373,9 @@ export function ChartWorkspace({
   );
 
   useEffect(() => {
-    if (expandedIdx === null) return;
+    if (expandedView === null) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setExpandedIdx(null);
+      if (e.key === "Escape") setExpandedView(null);
     };
     document.addEventListener("keydown", onKey);
     const prevOverflow = document.body.style.overflow;
@@ -381,7 +384,7 @@ export function ChartWorkspace({
       document.removeEventListener("keydown", onKey);
       document.body.style.overflow = prevOverflow;
     };
-  }, [expandedIdx]);
+  }, [expandedView]);
 
   const move = (from: number, to: number) => {
     setCells((prev) => {
@@ -392,25 +395,39 @@ export function ChartWorkspace({
     });
   };
 
-  if (!grid) {
-    return (
-      <div className="space-y-4">
-        <div className="flex justify-end">
-          <Button type="button" variant="ghost" onClick={() => setGrid(true)}>
-            Grid mode (2×2)
-          </Button>
-        </div>
-        <Cell ticker={ticker} initialTf="1D" />
-      </div>
-    );
-  }
-
   const expandedCell =
-    expandedIdx !== null ? cells[expandedIdx] : undefined;
+    expandedView === null
+      ? undefined
+      : expandedView.kind === "single"
+        ? { ticker, tf: "1D" as Tf }
+        : cells[expandedView.idx];
 
   return (
     <>
-      <div className="space-y-4">
+      {!grid ? (
+        <div className="space-y-4">
+          <div className="flex justify-end items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setExpandedView({ kind: "single" })}
+              className={cn(
+                "shrink-0 inline-flex items-center justify-center rounded-sm border border-[var(--border)]",
+                "h-7 w-7 text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-[var(--background)]",
+                "transition-app",
+              )}
+              title="Larger chart"
+              aria-label={`Larger chart for ${ticker}`}
+            >
+              <ExpandChartIcon />
+            </button>
+            <Button type="button" variant="ghost" onClick={() => setGrid(true)}>
+              Grid mode (2×2)
+            </Button>
+          </div>
+          <Cell ticker={ticker} initialTf="1D" chartHeight={GRID_CHART_HEIGHT} />
+        </div>
+      ) : (
+        <div className="space-y-4">
         <div className="flex justify-end">
           <Button type="button" variant="ghost" onClick={() => setGrid(false)}>
             Single chart
@@ -437,7 +454,7 @@ export function ChartWorkspace({
                   type="button"
                   draggable={false}
                   onMouseDown={(e) => e.stopPropagation()}
-                  onClick={() => setExpandedIdx(idx)}
+                  onClick={() => setExpandedView({ kind: "grid", idx })}
                   className={cn(
                     "shrink-0 inline-flex items-center justify-center rounded-sm border border-[var(--border)]",
                     "h-7 w-7 text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-[var(--background)]",
@@ -462,13 +479,14 @@ export function ChartWorkspace({
           Symbols for the four panels are set in the section above (on this page) or switch to
           single chart for the page symbol only.
         </p>
-      </div>
+        </div>
+      )}
 
       {expandedCell ? (
         <div
           className="fixed inset-0 z-[100] flex items-center justify-center bg-black/65 p-3 sm:p-6"
           role="presentation"
-          onClick={() => setExpandedIdx(null)}
+          onClick={() => setExpandedView(null)}
         >
           <div
             className={cn(
@@ -491,7 +509,7 @@ export function ChartWorkspace({
                 type="button"
                 variant="ghost"
                 className="h-8 shrink-0 text-xs"
-                onClick={() => setExpandedIdx(null)}
+                onClick={() => setExpandedView(null)}
               >
                 Close
               </Button>
