@@ -1,0 +1,23 @@
+/** Subset of NSE sectors for multi-select demo */
+export const NSE_SECTORS = [
+  "Automobile and Auto Components",
+  "Banking",
+  "Capital Goods",
+  "Chemicals",
+  "Construction",
+  "Consumer Durables",
+  "Consumer Services",
+  "Financial Services",
+  "FMCG",
+  "Healthcare",
+  "IT",
+  "Media",
+  "Metals & Mining",
+  "Oil Gas & Consumable Fuels",
+  "Pharma",
+  "Power",
+  "Realty",
+  "Telecom",
+  "Textiles",
+  "Utilities",
+] as const;
