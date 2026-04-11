@@ -1,4 +1,5 @@
 import type { OhlcBar } from "@/lib/schemas";
+import { chartIndexYahooSymbol } from "@/config/chart-index-options";
 
 /** Browser-like UA — Yahoo often returns 429 without it. */
 const YAHOO_HEADERS = {
@@ -10,8 +11,8 @@ const YAHOO_HEADERS = {
 /** Map grid shortcuts / indices to Yahoo symbols */
 export function toYahooSymbol(ticker: string): string {
   const u = ticker.trim().toUpperCase();
-  if (u === "NIFTY" || u === "NIFTY50") return "^NSEI";
-  if (u === "BANKNIFTY") return "^NSEBANK";
+  const fromIndex = chartIndexYahooSymbol(u);
+  if (fromIndex) return fromIndex;
   return `${u}.NS`;
 }
 
