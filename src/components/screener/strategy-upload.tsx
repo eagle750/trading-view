@@ -2,6 +2,13 @@
 
 import { useCallback, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { computeStrategyStableId } from "@/lib/strategy-stable-id";
 import type { StrategyRuleModel } from "@/lib/schemas";
@@ -21,7 +28,10 @@ export function StrategyUploadZone({
   const [drag, setDrag] = useState(false);
   const [parsing, setParsing] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [detailStrategyId, setDetailStrategyId] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const detailStrategy = strategies.find((s) => s.id === detailStrategyId) ?? null;
 
   const handleFiles = useCallback(
     async (files: FileList | null) => {
@@ -42,6 +52,7 @@ export function StrategyUploadZone({
             bullets?: string[];
             tags?: string[];
             ruleModel?: StrategyRuleModel;
+            extractedPreview?: string;
             error?: string;
           };
           try {
@@ -66,6 +77,7 @@ export function StrategyUploadZone({
             summaryBullets: data.bullets ?? [],
             tags: data.tags ?? [],
             ruleModel: data.ruleModel,
+            extractedPreview: data.extractedPreview,
             useForSignals: true,
           };
           addStrategy(card);
@@ -96,8 +108,9 @@ export function StrategyUploadZone({
         synthetic demo data). Card summaries come from the file name and a small sample — not
         a full read of every rule. Rankings use the parsed rule model from your uploaded file when you{" "}
         <span className="text-[var(--foreground)]">Run</span>. Uploaded files stay in this
-        browser until you remove them; turning &quot;Use for signals&quot; off only excludes
-        them from the next run.
+        browser until you remove them;         turning &quot;Use for signals&quot; off only excludes
+        them from the next run. Click a card&apos;s filename to open extracted text and the
+        parsed rule model.
       </p>
 
       {compareOn ? (
@@ -160,6 +173,84 @@ export function StrategyUploadZone({
         ) : null}
       </div>
 
+      <Dialog
+        open={detailStrategyId !== null}
+        onOpenChange={(open) => {
+          if (!open) setDetailStrategyId(null);
+        }}
+      >
+        <DialogContent>
+          {detailStrategy ? (
+            <>
+              <DialogTitle className="pr-8">{detailStrategy.filename}</DialogTitle>
+              <DialogDescription>
+                Sanitized text excerpt from your file and a numeric profile computed by fixed
+                rules (not an AI quote of your document).
+              </DialogDescription>
+              <div className="space-y-4 text-sm">
+                {detailStrategy.tags.length > 0 ? (
+                  <div>
+                    <div className="text-[10px] uppercase tracking-wide text-[var(--muted)] mb-1.5">
+                      Tags
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      {detailStrategy.tags.map((t) => (
+                        <span
+                          key={t}
+                          className="rounded-sm border border-[var(--border)] px-1.5 py-0.5 text-[10px]"
+                        >
+                          {t}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+                <div>
+                  <div className="text-[10px] uppercase tracking-wide text-[var(--muted)] mb-1.5">
+                    Summary
+                  </div>
+                  <ul className="text-xs text-[var(--muted)] space-y-1 list-disc pl-4">
+                    {detailStrategy.summaryBullets.map((b, i) => (
+                      <li key={i}>{b}</li>
+                    ))}
+                  </ul>
+                </div>
+                <div>
+                  <div className="text-[10px] uppercase tracking-wide text-[var(--muted)] mb-1.5">
+                    Derived score weights (heuristic)
+                  </div>
+                  <pre className="text-[11px] font-[family-name:var(--font-jetbrains)] overflow-x-auto rounded-sm border border-[var(--border)] bg-[var(--background)] p-2 text-[var(--foreground)]">
+                    {detailStrategy.ruleModel
+                      ? JSON.stringify(detailStrategy.ruleModel, null, 2)
+                      : "—"}
+                  </pre>
+                </div>
+                <div>
+                  <div className="text-[10px] uppercase tracking-wide text-[var(--muted)] mb-1.5">
+                    Extracted text (used for parsing)
+                  </div>
+                  {detailStrategy.extractedPreview ? (
+                    <pre className="max-h-48 overflow-y-auto whitespace-pre-wrap break-words text-[11px] font-[family-name:var(--font-jetbrains)] rounded-sm border border-[var(--border)] bg-[var(--background)] p-2 text-[var(--muted)]">
+                      {detailStrategy.extractedPreview}
+                    </pre>
+                  ) : (
+                    <p className="text-xs text-[var(--muted)]">
+                      No preview stored for this card. Remove it and upload again to capture
+                      extracted text.
+                    </p>
+                  )}
+                </div>
+                <DialogClose asChild>
+                  <Button type="button" variant="default" className="w-full sm:w-auto">
+                    Close
+                  </Button>
+                </DialogClose>
+              </div>
+            </>
+          ) : null}
+        </DialogContent>
+      </Dialog>
+
       <div className="grid gap-4 md:grid-cols-2">
         {strategies.map((s) => (
           <article
@@ -168,9 +259,13 @@ export function StrategyUploadZone({
           >
             <div className="flex items-start justify-between gap-2 mb-3">
               <div className="min-w-0">
-                <div className="font-[family-name:var(--font-jetbrains)] text-sm text-[var(--foreground)] truncate">
+                <button
+                  type="button"
+                  onClick={() => setDetailStrategyId(s.id)}
+                  className="font-[family-name:var(--font-jetbrains)] text-sm text-[#93c5fd] hover:underline text-left truncate w-full"
+                >
                   {s.filename}
-                </div>
+                </button>
               </div>
               <button
                 type="button"

@@ -60,12 +60,12 @@ export function ScoreColumnHeader() {
           <p>
             <span className="text-[var(--foreground)]">With strategy on:</span>{" "}
             <span className="font-[family-name:var(--font-jetbrains)] text-[10px] text-[#93c5fd] break-words">
-              round(35% × base score + 65% × strategy fit)
+              round(blendBase% × base score + blendFit% × strategy fit)
             </span>
-            . <em>Fit</em> is 1–99 from a stable key (content hash of the strategy file, not
-            the display name) plus symbol, sector, and market cap — same document bytes
-            should match across devices and renames. Signal bands: ≥67 BUY, ≥42 HOLD,
-            otherwise SELL.
+            . Blend percentages come from your uploaded strategy (explicit base/fit pairs when
+            the text states them; otherwise inferred from the document&apos;s emphasis).{" "}
+            <em>Fit</em> is 1–99 from the parsed rule model applied to this symbol&apos;s demo
+            fundamentals and daily change. Signal bands: ≥67 BUY, ≥42 HOLD, otherwise SELL.
           </p>
         </div>
       ) : null}

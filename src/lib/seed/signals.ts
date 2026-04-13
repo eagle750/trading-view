@@ -66,17 +66,54 @@ export function signalsForStrategyWithModel(
 ): SignalRow[] {
   const label =
     strategyId.length > 28 ? `${strategyId.slice(0, 25)}…` : strategyId;
-  const mapped = base.map((row) => {
-    const fit = strategyFitScore(ruleModel, row);
-    const blended = Math.round(row.score * 0.35 + fit * 0.65);
+  const biasSpread =
+    Math.max(
+      ruleModel.trendBias,
+      ruleModel.meanReversionBias,
+      ruleModel.qualityBias,
+      ruleModel.riskBias,
+      ruleModel.volatilityBias,
+    ) -
+    Math.min(
+      ruleModel.trendBias,
+      ruleModel.meanReversionBias,
+      ruleModel.qualityBias,
+      ruleModel.riskBias,
+      ruleModel.volatilityBias,
+    );
+  // Distinct strategy profiles should separate symbols more clearly.
+  const fitAmplifier = 1 + biasSpread / 90;
+  const mapped: Array<SignalRow & { __fit: number }> = base.map((row) => {
+    const rawFit = strategyFitScore(ruleModel, row);
+    const fit = Math.min(
+      99,
+      Math.max(1, Math.round(50 + (rawFit - 50) * fitAmplifier)),
+    );
+    const basePct = ruleModel.blendBasePct;
+    const fitPct = 100 - basePct;
+    const wBase = basePct / 100;
+    const wFit = fitPct / 100;
+    const blended = Math.round(row.score * wBase + fit * wFit);
     const score = Math.min(99, Math.max(1, blended));
     const signal = signalFromCompositeScore(score);
     return {
       ...row,
       score,
       signal,
-      triggeredRule: `${row.triggeredRule} [${label} · fit ${fit} · ${ruleModel.version}]`,
+      __fit: fit,
+      triggeredRule: `${row.triggeredRule} [${label} · fit ${fit} · blend ${basePct}/${fitPct} · ${ruleModel.version}]`,
     };
   });
-  return sortSignalsByScoreDesc(mapped);
+  mapped.sort(
+    (a, b) =>
+      b.score - a.score ||
+      b.__fit - a.__fit ||
+      b.pctChg - a.pctChg ||
+      a.symbol.localeCompare(b.symbol),
+  );
+  return mapped.map((row) => {
+    const clean = { ...row };
+    delete (clean as { __fit?: number }).__fit;
+    return clean;
+  });
 }

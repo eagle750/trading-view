@@ -53,6 +53,8 @@ export const strategyRuleModelSchema = z.object({
   qualityBias: z.number().min(0).max(100),
   riskBias: z.number().min(0).max(100),
   volatilityBias: z.number().min(0).max(100),
+  /** Percent of composite score from universe base rank (remainder from strategy fit). */
+  blendBasePct: z.number().int().min(5).max(95).default(50),
 });
 
 export type StrategyRuleModel = z.infer<typeof strategyRuleModelSchema>;
@@ -61,6 +63,8 @@ export const strategySummarySchema = z.object({
   bullets: z.array(z.string()).min(3).max(5),
   tags: z.array(z.string()),
   ruleModel: strategyRuleModelSchema,
+  /** Sanitized excerpt shown in the UI after a successful parse. */
+  extractedPreview: z.string().max(4000).optional(),
 });
 
 export type StrategySummary = z.infer<typeof strategySummarySchema>;

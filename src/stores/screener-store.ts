@@ -12,6 +12,8 @@ export interface StrategyCard {
   tags: string[];
   /** Parsed rule profile used for score computation (content-driven, not ID hash). */
   ruleModel?: StrategyRuleModel;
+  /** Text the server used to derive the model (after validation). */
+  extractedPreview?: string;
   useForSignals: boolean;
 }
 
@@ -68,7 +70,8 @@ export const useScreenerStore = create<ScreenerState>()(
       setLastRunStrategyIds: (ids) => set({ lastRunStrategyIds: ids }),
     }),
     {
-      name: "trade-screener-store",
+      /** Bumped when persisted strategy shape or parse rules change (drops old junk cards). */
+      name: "trade-screener-store-v3",
       partialize: (state) => ({ strategies: state.strategies }),
     },
   ),

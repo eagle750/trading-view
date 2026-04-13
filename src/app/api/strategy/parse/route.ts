@@ -2,35 +2,92 @@ import { NextResponse } from "next/server";
 import { strategySummarySchema } from "@/lib/schemas";
 import { cacheGet, cacheSet } from "@/lib/cache";
 import {
+  buildExtractedPreview,
+  extensionOf,
+  validateStrategyExtract,
+} from "@/lib/strategy-extract-validation";
+import {
   deriveRuleModelFromText,
   ruleModelSummary,
 } from "@/lib/strategy-rule-model";
 
 export const runtime = "nodejs";
 
-const MAX_SAMPLE_BYTES = 8192;
+const MAX_SAMPLE_BYTES = 256 * 1024;
+const MAX_FULL_HASH = 8 * 1024 * 1024;
+const HEAD_LARGE = 512 * 1024;
+const TAIL_LARGE = 65536;
+const TEXT_EXTENSIONS = new Set([
+  "txt",
+  "md",
+  "json",
+  "csv",
+  "tsv",
+  "yaml",
+  "yml",
+]);
 
-function hash(s: string): number {
-  let h = 0;
-  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
-  return Math.abs(h);
+async function sha256Hex(data: ArrayBuffer): Promise<string> {
+  const hashBuf = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(hashBuf))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
 }
 
-/** Heuristic from filename only — DOCX/PDF body is not parsed as trading rules. */
-function strategyTypeFromFilename(filename: string, h: number): string {
-  const f = filename.toLowerCase();
-  if (/\b(mean|reversion|revert|contrarian)\b/.test(f)) return "mean-reversion";
-  if (/\b(trend|momentum|breakout)\b/.test(f)) return "trend-following";
-  return h % 2 === 0 ? "trend-following" : "mean-reversion";
+async function fileDigestHex(blob: Blob): Promise<string> {
+  if (blob.size === 0) {
+    return sha256Hex(new ArrayBuffer(0));
+  }
+  if (blob.size <= MAX_FULL_HASH) {
+    return sha256Hex(await blob.arrayBuffer());
+  }
+  const head = await blob.slice(0, HEAD_LARGE).arrayBuffer();
+  const tailStart = Math.max(0, blob.size - TAIL_LARGE);
+  const tail = await blob.slice(tailStart).arrayBuffer();
+  const meta = new TextEncoder().encode(`size:${blob.size}`);
+  const combined = new Uint8Array(head.byteLength + tail.byteLength + meta.length);
+  combined.set(new Uint8Array(head), 0);
+  combined.set(new Uint8Array(tail), head.byteLength);
+  combined.set(meta, head.byteLength + tail.byteLength);
+  return sha256Hex(combined.buffer);
 }
 
-/** Mock LLM: deterministic summary from filename + a small file sample (no full-file read). */
+function tagsFromText(text: string): string[] {
+  const h = text.toLowerCase();
+  const picked = new Set<string>();
+  if (/\b(momentum|breakout|trend|ema)\b/.test(h)) picked.add("Momentum");
+  if (/\b(mean reversion|reversion|bollinger|oversold|overbought)\b/.test(h)) {
+    picked.add("Mean reversion");
+  }
+  if (/\b(roe|roce|quality|promoter|profit growth|sales growth)\b/.test(h)) {
+    picked.add("Quality");
+  }
+  if (/\b(swing|position|positional)\b/.test(h)) picked.add("Swing");
+  return Array.from(picked).slice(0, 3);
+}
+
+function strategyTypeFromText(text: string): string {
+  const t = text.toLowerCase();
+  const trend = /\b(trend|momentum|breakout|ema|moving average)\b/.test(t);
+  const meanRev =
+    /\b(mean reversion|reversion|contrarian|bollinger|oversold|overbought)\b/.test(t);
+  if (trend && !meanRev) return "trend-following";
+  if (meanRev && !trend) return "mean-reversion";
+  if (trend && meanRev) return "hybrid";
+  return "rule-based";
+}
+
+/**
+ * Parse strategy uploads into a deterministic rule model.
+ * Scores are derived from extracted document text, not filename-only heuristics.
+ */
 export async function POST(req: Request) {
   try {
     const ct = req.headers.get("content-type") || "";
     let filename = "strategy.txt";
     let sample = "";
     let byteLength = 0;
+    let digest = "";
 
     if (ct.includes("multipart/form-data")) {
       let form: FormData;
@@ -61,8 +118,16 @@ export async function POST(req: Request) {
         entry instanceof File && entry.name.trim()
           ? entry.name.trim()
           : "upload.bin";
-      const slice = blob.slice(0, Math.min(MAX_SAMPLE_BYTES, blob.size));
-      sample = await slice.text();
+      digest = await fileDigestHex(blob);
+      const ext = extensionOf(filename);
+      if (TEXT_EXTENSIONS.has(ext)) {
+        const slice = blob.slice(0, Math.min(MAX_SAMPLE_BYTES, blob.size));
+        sample = await slice.text();
+      } else {
+        // Best-effort for non-plain-text files (doc/pdf/etc).
+        const slice = blob.slice(0, Math.min(MAX_SAMPLE_BYTES, blob.size));
+        sample = await slice.text();
+      }
     } else if (ct.includes("application/json")) {
       let j: Record<string, unknown>;
       try {
@@ -77,6 +142,7 @@ export async function POST(req: Request) {
       const preview = typeof j.preview === "string" ? j.preview : "";
       sample = preview.slice(0, MAX_SAMPLE_BYTES);
       byteLength = typeof j.size === "number" ? j.size : preview.length;
+      digest = await sha256Hex(new TextEncoder().encode(sample).buffer);
     } else {
       return NextResponse.json(
         {
@@ -87,36 +153,33 @@ export async function POST(req: Request) {
       );
     }
 
-    const key = `parse:${filename}:${byteLength}:${sample.length}`;
+    const extractCheck = validateStrategyExtract(sample, filename);
+    if (!extractCheck.ok) {
+      return NextResponse.json({ error: extractCheck.error }, { status: 422 });
+    }
+
+    const key = `parse:v3:${digest}`;
     const hit = cacheGet<unknown>(key);
     if (hit) {
       return NextResponse.json(hit);
     }
 
-    const h = hash(filename + sample.slice(0, 200) + String(byteLength));
-    const tagsPool = [
-      "Momentum",
-      "Value",
-      "Breakout",
-      "Swing",
-      "Mean reversion",
-      "Quality",
-    ];
-    const tags = [tagsPool[h % tagsPool.length], tagsPool[(h + 2) % tagsPool.length]];
-
-    const strategyType = strategyTypeFromFilename(filename, h);
-    const ruleModel = deriveRuleModelFromText(`${filename}\n${sample}`);
+    const tags = tagsFromText(sample);
+    const strategyType = strategyTypeFromText(sample);
+    const ruleModel = deriveRuleModelFromText(sample);
+    const extractedPreview = buildExtractedPreview(sample);
 
     const raw = {
       bullets: [
-        `Strategy type: ${strategyType} on liquid names`,
+        `Strategy type: ${strategyType}`,
         `Rule model: ${ruleModelSummary(ruleModel)}`,
-        `Entry idea: price + volume / regime confirmation from uploaded spec`,
-        `Risk lens: stop / position-size cues influence risk and volatility bias`,
-        `Timeframe: ${h % 2 === 0 ? "swing (days to weeks)" : "positional (weeks)"}`,
+        `File digest: ${digest.slice(0, 16)}… (${byteLength.toLocaleString("en-IN")} bytes)`,
+        "Rule profile derived from validated upload text.",
+        "Risk and volatility bias are inferred from terms like stop, drawdown, ATR, SD.",
       ],
       tags,
       ruleModel,
+      extractedPreview,
     };
 
     const summary = strategySummarySchema.parse(raw);

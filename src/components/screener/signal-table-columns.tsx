@@ -3,36 +3,11 @@
 import Link from "next/link";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { SignalRow } from "@/lib/schemas";
+import { symbolHrefFromRow } from "@/lib/signal-row-link";
 import { ScoreColumnHeader } from "@/components/screener/score-column-header";
 import { cn } from "@/lib/utils";
 
 const sz = (size: number, min = 48, max = 640) => ({ size, minSize: min, maxSize: max });
-
-function extractFitAndStrategy(triggeredRule: string): {
-  fit?: number;
-  strategyLabel?: string;
-} {
-  const m = triggeredRule.match(/\[([^\]]+?) · fit (\d+)\]/);
-  if (!m) return {};
-  return {
-    strategyLabel: m[1],
-    fit: Number(m[2]),
-  };
-}
-
-function symbolHrefFromRow(row: SignalRow): string {
-  const q = new URLSearchParams();
-  q.set("score", String(row.score));
-  q.set("signal", row.signal);
-  const parsed = extractFitAndStrategy(row.triggeredRule);
-  if (typeof parsed.fit === "number" && Number.isFinite(parsed.fit)) {
-    q.set("fit", String(parsed.fit));
-  }
-  if (parsed.strategyLabel) {
-    q.set("strategy", parsed.strategyLabel);
-  }
-  return `/symbol/${encodeURIComponent(row.symbol)}?${q.toString()}`;
-}
 
 export const signalTableBaseColumns: ColumnDef<SignalRow>[] = [
   {

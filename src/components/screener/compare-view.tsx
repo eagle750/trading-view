@@ -6,6 +6,7 @@ import { useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import type { SignalRow } from "@/lib/schemas";
+import { symbolHrefFromRow } from "@/lib/signal-row-link";
 import { useScreenerStore } from "@/stores/screener-store";
 import { cn } from "@/lib/utils";
 
@@ -69,7 +70,7 @@ function PaneTable({
                 >
                   <td className="px-2 py-3 font-[family-name:var(--font-jetbrains)]">
                     <Link
-                      href={`/symbol/${encodeURIComponent(r.symbol)}`}
+                      href={symbolHrefFromRow(r)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-[#3b82f6] hover:underline"
@@ -133,6 +134,7 @@ export function CompareView({
           score: number;
           sa: string;
           sb: string;
+          linkRow: SignalRow;
         }>,
         conflictSymbols: new Set<string>(),
       };
@@ -168,6 +170,7 @@ export function CompareView({
       score: number;
       sa: string;
       sb: string;
+      linkRow: SignalRow;
     }> = [];
     for (const s of symA) {
       if (!symB.has(s)) continue;
@@ -178,6 +181,7 @@ export function CompareView({
         score: Math.round((ra.score + rb.score) / 2),
         sa: ra.signal,
         sb: rb.signal,
+        linkRow: ra,
       });
     }
     return {
@@ -273,8 +277,9 @@ export function CompareView({
                   <tr key={r.symbol} className="border-t border-[var(--border)]">
                     <td className="py-2 font-[family-name:var(--font-jetbrains)]">
                       <Link
-                        href={`/symbol/${encodeURIComponent(r.symbol)}`}
+                        href={symbolHrefFromRow(r.linkRow)}
                         target="_blank"
+                        rel="noopener noreferrer"
                         className="text-[#3b82f6]"
                       >
                         {r.symbol}
