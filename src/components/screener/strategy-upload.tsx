@@ -53,7 +53,7 @@ export function StrategyUploadZone({
             );
             return;
           }
-          const stableId = await computeStrategyStableId(file, i);
+          const stableId = await computeStrategyStableId(file);
           const card: StrategyCard = {
             id: stableId,
             filename: file.name,

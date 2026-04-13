@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import {
   CandlestickSeries,
   ColorType,
+  createSeriesMarkers,
   createChart,
   HistogramSeries,
   LineSeries,
@@ -149,6 +150,21 @@ export function CandleChart({
       close: b.close,
     }));
     candle.setData(data);
+
+    const last = bars[bars.length - 1];
+    if (last) {
+      const isUp = last.close >= last.open;
+      const entryMarkers = createSeriesMarkers(candle);
+      entryMarkers.setMarkers([
+        {
+          time: last.time as import("lightweight-charts").UTCTimestamp,
+          position: isUp ? "belowBar" : "aboveBar",
+          shape: isUp ? "arrowUp" : "arrowDown",
+          color: isUp ? "#22c55e" : "#ef4444",
+          text: `Entry ${last.close.toFixed(2)}`,
+        },
+      ]);
+    }
 
     const closes = bars.map((b) => b.close);
     const times = bars.map((b) => b.time as import("lightweight-charts").UTCTimestamp);

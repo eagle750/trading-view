@@ -5,10 +5,13 @@ import { SymbolChartSection } from "@/app/symbol/[ticker]/symbol-chart-section";
 
 export default async function SymbolPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ ticker: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { ticker: raw } = await params;
+  const sp = await searchParams;
   const ticker = decodeURIComponent(raw);
   const row = SEED_SIGNALS.find(
     (s) => s.symbol.toUpperCase() === ticker.toUpperCase(),
@@ -38,6 +41,27 @@ export default async function SymbolPage({
     pctChg != null
       ? `${pctChg >= 0 ? "+" : ""}${pctChg.toFixed(2)}%`
       : "—";
+
+  const readParam = (k: string): string | undefined => {
+    const v = sp[k];
+    return Array.isArray(v) ? v[0] : v;
+  };
+  const fromScore = Number(readParam("score"));
+  const fromFit = Number(readParam("fit"));
+  const fromSignal = readParam("signal");
+  const fromStrategy = readParam("strategy");
+  const hasBreakdown =
+    row != null &&
+    Number.isFinite(fromFit) &&
+    Number.isFinite(fromScore) &&
+    typeof fromSignal === "string";
+  const baseScore = row?.score ?? null;
+  const blendedRaw =
+    hasBreakdown && baseScore != null
+      ? baseScore * 0.35 + fromFit * 0.65
+      : null;
+  const recomputedScore =
+    blendedRaw != null ? Math.min(99, Math.max(1, Math.round(blendedRaw))) : null;
 
   const instrumentChoices = sortSignalsByScoreDesc([...SEED_SIGNALS])
     .slice(0, 120)
@@ -94,6 +118,32 @@ export default async function SymbolPage({
       </div>
 
       <section>
+        {hasBreakdown ? (
+          <div className="mb-4 rounded-sm border border-[var(--border)] bg-[var(--surface)] p-3">
+            <div className="text-xs font-medium text-[var(--foreground)] mb-1">
+              Score logic from selected screener row
+            </div>
+            <p className="text-[11px] text-[var(--muted)] leading-relaxed">
+              Base score ({baseScore}) and strategy fit ({fromFit}) combine as{" "}
+              <span className="font-[family-name:var(--font-jetbrains)] text-[var(--foreground)]">
+                round(0.35 × {baseScore} + 0.65 × {fromFit})
+              </span>{" "}
+              = <span className="text-[var(--foreground)]">{recomputedScore}</span>.
+              Clicked row score:{" "}
+              <span className="text-[var(--foreground)]">{fromScore}</span> ({fromSignal}).
+              {fromStrategy ? (
+                <>
+                  {" "}
+                  Strategy key:{" "}
+                  <span className="font-[family-name:var(--font-jetbrains)] text-[var(--foreground)]">
+                    {fromStrategy}
+                  </span>
+                  .
+                </>
+              ) : null}
+            </p>
+          </div>
+        ) : null}
         <h2 className="text-sm font-medium text-[var(--foreground)] mb-3">
           Chart workspace
         </h2>

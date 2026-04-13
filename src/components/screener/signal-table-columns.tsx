@@ -8,6 +8,32 @@ import { cn } from "@/lib/utils";
 
 const sz = (size: number, min = 48, max = 640) => ({ size, minSize: min, maxSize: max });
 
+function extractFitAndStrategy(triggeredRule: string): {
+  fit?: number;
+  strategyLabel?: string;
+} {
+  const m = triggeredRule.match(/\[([^\]]+?) · fit (\d+)\]/);
+  if (!m) return {};
+  return {
+    strategyLabel: m[1],
+    fit: Number(m[2]),
+  };
+}
+
+function symbolHrefFromRow(row: SignalRow): string {
+  const q = new URLSearchParams();
+  q.set("score", String(row.score));
+  q.set("signal", row.signal);
+  const parsed = extractFitAndStrategy(row.triggeredRule);
+  if (typeof parsed.fit === "number" && Number.isFinite(parsed.fit)) {
+    q.set("fit", String(parsed.fit));
+  }
+  if (parsed.strategyLabel) {
+    q.set("strategy", parsed.strategyLabel);
+  }
+  return `/symbol/${encodeURIComponent(row.symbol)}?${q.toString()}`;
+}
+
 export const signalTableBaseColumns: ColumnDef<SignalRow>[] = [
   {
     accessorKey: "symbol",
@@ -15,9 +41,10 @@ export const signalTableBaseColumns: ColumnDef<SignalRow>[] = [
     header: "Symbol",
     cell: (c) => {
       const sym = c.getValue() as string;
+      const row = c.row.original;
       return (
         <Link
-          href={`/symbol/${encodeURIComponent(sym)}`}
+          href={symbolHrefFromRow(row)}
           target="_blank"
           rel="noopener noreferrer"
           className="font-[family-name:var(--font-jetbrains)] text-[#3b82f6] hover:underline"

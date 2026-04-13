@@ -36,10 +36,7 @@ async function hashFileContents(file: File): Promise<string> {
   return sha256Hex(combined.buffer);
 }
 
-export async function computeStrategyStableId(
-  file: File,
-  fileIndex: number,
-): Promise<string> {
+export async function computeStrategyStableId(file: File): Promise<string> {
   const contentHex = await hashFileContents(file);
-  return `strat--${file.size}--${contentHex}--${fileIndex}`;
+  return `strat--${file.size}--${contentHex}`;
 }
