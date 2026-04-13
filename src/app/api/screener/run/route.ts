@@ -3,21 +3,32 @@ import { z } from "zod";
 import {
   mergeScreenerFiltersFromRequest,
   normalizeMarket,
+  normalizeRunStrategies,
   normalizeStrategyIds,
 } from "@/lib/merge-screener-filters";
-import { screenerFiltersSchema } from "@/lib/schemas";
+import { screenerFiltersSchema, strategyRuleModelSchema } from "@/lib/schemas";
 import { applyScreenerFilters } from "@/lib/seed/apply-screener-filters";
 import {
   SEED_SIGNALS,
-  signalsForStrategy,
+  signalsForStrategyWithModel,
   sortSignalsByScoreDesc,
 } from "@/lib/seed/signals";
+import { defaultStrategyRuleModel } from "@/lib/strategy-rule-model";
 import { cacheGet, cacheSet } from "@/lib/cache";
 
 const bodySchema = z.object({
   filters: screenerFiltersSchema,
   market: z.enum(["IN", "US"]).optional(),
   strategyIds: z.array(z.string()).optional(),
+  runStrategies: z
+    .array(
+      z.object({
+        id: z.string(),
+        label: z.string().optional(),
+        ruleModel: strategyRuleModelSchema.optional(),
+      }),
+    )
+    .optional(),
 });
 
 export async function POST(req: Request) {
@@ -49,6 +60,11 @@ export async function POST(req: Request) {
         ? (raw as { strategyIds?: unknown }).strategyIds
         : undefined,
     ),
+    runStrategies: normalizeRunStrategies(
+      raw && typeof raw === "object" && raw !== null && "runStrategies" in raw
+        ? (raw as { runStrategies?: unknown }).runStrategies
+        : undefined,
+    ),
   });
 
   if (!parsed.success) {
@@ -62,8 +78,12 @@ export async function POST(req: Request) {
   }
 
   try {
-    const { filters, strategyIds = [] } = parsed.data;
-    const cacheKey = `screener:${JSON.stringify(filters)}:${strategyIds.join(",")}`;
+    const { filters, strategyIds = [], runStrategies = [] } = parsed.data;
+    const effective =
+      runStrategies.length > 0
+        ? runStrategies
+        : strategyIds.map((id) => ({ id, label: id, ruleModel: undefined }));
+    const cacheKey = `screener:${JSON.stringify(filters)}:${JSON.stringify(effective)}`;
     const hit = cacheGet<{ mode: "single" | "compare"; data: unknown }>(cacheKey);
     if (hit) {
       return NextResponse.json(hit);
@@ -72,20 +92,33 @@ export async function POST(req: Request) {
     const filtered = applyScreenerFilters(filters, [...SEED_SIGNALS]);
     const universe = filtered.length > 0 ? filtered : [...SEED_SIGNALS];
 
-    if (strategyIds.length >= 2) {
+    if (effective.length >= 2) {
       const byStrategy: Record<string, typeof SEED_SIGNALS> = {};
-      strategyIds.forEach((sid, idx) => {
-        byStrategy[sid] = signalsForStrategy(sid + idx, universe);
+      effective.forEach((st, idx) => {
+        const sid = st.id;
+        const label = st.label ?? sid;
+        byStrategy[sid] = signalsForStrategyWithModel(
+          label + idx,
+          st.ruleModel ?? defaultStrategyRuleModel(),
+          universe,
+        );
       });
       const payload = { mode: "compare" as const, data: byStrategy };
       cacheSet(cacheKey, payload, 30_000);
       return NextResponse.json(payload);
     }
 
-    if (strategyIds.length === 1) {
+    if (effective.length === 1) {
+      const st = effective[0]!;
       const payload = {
         mode: "single" as const,
-        data: { signals: signalsForStrategy(strategyIds[0], universe) },
+        data: {
+          signals: signalsForStrategyWithModel(
+            st.label ?? st.id,
+            st.ruleModel ?? defaultStrategyRuleModel(),
+            universe,
+          ),
+        },
       };
       cacheSet(cacheKey, payload, 30_000);
       return NextResponse.json(payload);

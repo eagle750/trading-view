@@ -4,6 +4,7 @@ import { useCallback, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { computeStrategyStableId } from "@/lib/strategy-stable-id";
+import type { StrategyRuleModel } from "@/lib/schemas";
 import { useScreenerStore, type StrategyCard } from "@/stores/screener-store";
 import { cn } from "@/lib/utils";
 
@@ -37,7 +38,12 @@ export function StrategyUploadZone({
             method: "POST",
             body: fd,
           });
-          let data: { bullets?: string[]; tags?: string[]; error?: string };
+          let data: {
+            bullets?: string[];
+            tags?: string[];
+            ruleModel?: StrategyRuleModel;
+            error?: string;
+          };
           try {
             data = (await res.json()) as typeof data;
           } catch {
@@ -59,6 +65,7 @@ export function StrategyUploadZone({
             filename: file.name,
             summaryBullets: data.bullets ?? [],
             tags: data.tags ?? [],
+            ruleModel: data.ruleModel,
             useForSignals: true,
           };
           addStrategy(card);
@@ -87,7 +94,7 @@ export function StrategyUploadZone({
         <span className="text-[var(--foreground)] font-medium">How this demo works:</span>{" "}
         The screener runs over a bundled NSE-listed equity universe (thousands of symbols,
         synthetic demo data). Card summaries come from the file name and a small sample — not
-        a full read of your rules. Rankings use heuristics keyed to the strategy id when you{" "}
+        a full read of every rule. Rankings use the parsed rule model from your uploaded file when you{" "}
         <span className="text-[var(--foreground)]">Run</span>. Uploaded files stay in this
         browser until you remove them; turning &quot;Use for signals&quot; off only excludes
         them from the next run.

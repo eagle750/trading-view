@@ -64,6 +64,23 @@ export function normalizeStrategyIds(raw: unknown): string[] | undefined {
   return raw.filter((x): x is string => typeof x === "string");
 }
 
+type RunStrategy = {
+  id: string;
+  label?: string;
+  ruleModel?: unknown;
+};
+
+export function normalizeRunStrategies(raw: unknown): RunStrategy[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  return raw.filter(
+    (x): x is RunStrategy =>
+      typeof x === "object" &&
+      x !== null &&
+      "id" in x &&
+      typeof (x as { id?: unknown }).id === "string",
+  );
+}
+
 export function normalizeMarket(
   raw: unknown,
 ): "IN" | "US" | undefined {

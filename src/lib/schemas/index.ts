@@ -46,9 +46,21 @@ export const signalRowSchema = z.object({
 
 export type SignalRow = z.infer<typeof signalRowSchema>;
 
+export const strategyRuleModelSchema = z.object({
+  version: z.literal("rule-v1"),
+  trendBias: z.number().min(0).max(100),
+  meanReversionBias: z.number().min(0).max(100),
+  qualityBias: z.number().min(0).max(100),
+  riskBias: z.number().min(0).max(100),
+  volatilityBias: z.number().min(0).max(100),
+});
+
+export type StrategyRuleModel = z.infer<typeof strategyRuleModelSchema>;
+
 export const strategySummarySchema = z.object({
   bullets: z.array(z.string()).min(3).max(5),
   tags: z.array(z.string()),
+  ruleModel: strategyRuleModelSchema,
 });
 
 export type StrategySummary = z.infer<typeof strategySummarySchema>;

@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { strategySummarySchema } from "@/lib/schemas";
 import { cacheGet, cacheSet } from "@/lib/cache";
+import {
+  deriveRuleModelFromText,
+  ruleModelSummary,
+} from "@/lib/strategy-rule-model";
 
 export const runtime = "nodejs";
 
@@ -101,16 +105,18 @@ export async function POST(req: Request) {
     const tags = [tagsPool[h % tagsPool.length], tagsPool[(h + 2) % tagsPool.length]];
 
     const strategyType = strategyTypeFromFilename(filename, h);
+    const ruleModel = deriveRuleModelFromText(`${filename}\n${sample}`);
 
     const raw = {
       bullets: [
         `Strategy type: ${strategyType} on liquid names`,
-        `Entry: price above ${20 + (h % 20)}-day average with volume confirmation`,
-        `Exit: trailing stop ${5 + (h % 5)}% or opposite signal on indicator`,
-        `Risk: max ${1 + (h % 3)}% of capital per trade; sector cap 25%`,
+        `Rule model: ${ruleModelSummary(ruleModel)}`,
+        `Entry idea: price + volume / regime confirmation from uploaded spec`,
+        `Risk lens: stop / position-size cues influence risk and volatility bias`,
         `Timeframe: ${h % 2 === 0 ? "swing (days to weeks)" : "positional (weeks)"}`,
       ],
       tags,
+      ruleModel,
     };
 
     const summary = strategySummarySchema.parse(raw);

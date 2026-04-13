@@ -3,12 +3,15 @@ import { persist } from "zustand/middleware";
 import { DEFAULT_SCREENER_FILTERS } from "@/lib/constants/screener-defaults";
 import type { ScreenerFilters } from "@/lib/schemas";
 import type { SignalRow } from "@/lib/schemas";
+import type { StrategyRuleModel } from "@/lib/schemas";
 
 export interface StrategyCard {
   id: string;
   filename: string;
   summaryBullets: string[];
   tags: string[];
+  /** Parsed rule profile used for score computation (content-driven, not ID hash). */
+  ruleModel?: StrategyRuleModel;
   useForSignals: boolean;
 }
 

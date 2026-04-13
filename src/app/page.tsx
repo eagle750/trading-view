@@ -59,9 +59,8 @@ export default function ScreenerPage() {
     try {
       const { filters, strategies: strat } = useScreenerStore.getState();
       const { market } = useMarketStore.getState();
-      const activeIds = strat
-        .filter((s) => s.useForSignals)
-        .map((s) => s.id);
+      const active = strat.filter((s) => s.useForSignals);
+      const activeIds = active.map((s) => s.id);
       const res = await fetch("/api/screener/run", {
         method: "POST",
         cache: "no-store",
@@ -70,6 +69,11 @@ export default function ScreenerPage() {
           filters,
           market,
           strategyIds: activeIds,
+          runStrategies: active.map((s) => ({
+            id: s.id,
+            label: s.filename,
+            ruleModel: s.ruleModel,
+          })),
         }),
       });
 
@@ -232,7 +236,7 @@ export default function ScreenerPage() {
             Use for signals
           </strong>{" "}
           on for an uploaded strategy to include it in the run (one strategy:
-          signals are adjusted for that id; two or more: compare panes). Use{" "}
+          signals are adjusted from its parsed rule model; two or more: compare panes). Use{" "}
           <strong className="text-[var(--foreground)]">NA</strong> on any filter
           row you do not want to apply.
         </p>
